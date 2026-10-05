@@ -1,3 +1,27 @@
 {
-  "targets": {}
+  "targets": {
+    "default": {
+      "resources": {
+        "runtimes": {
+          "FlightsAgent": {
+            "runtimeId": "TripPlanner_FlightsAgent-0tCFsZHKxn",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-2:090587344601:runtime/TripPlanner_FlightsAgent-0tCFsZHKxn",
+            "roleArn": "arn:aws:iam::090587344601:role/AgentCore-TripPlanner-def-ApplicationAgentFlightsAg-sYGRhlCzbbOY"
+          },
+          "OrchestratorAgent": {
+            "runtimeId": "TripPlanner_OrchestratorAgent-21lA5zCxGK",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-2:090587344601:runtime/TripPlanner_OrchestratorAgent-21lA5zCxGK",
+            "roleArn": "arn:aws:iam::090587344601:role/AgentCore-TripPlanner-def-ApplicationAgentOrchestra-hzGDLXrFfh1f"
+          },
+          "WeatherAgent": {
+            "runtimeId": "TripPlanner_WeatherAgent-W6Y7d43rfG",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-2:090587344601:runtime/TripPlanner_WeatherAgent-W6Y7d43rfG",
+            "roleArn": "arn:aws:iam::090587344601:role/AgentCore-TripPlanner-def-ApplicationAgentWeatherAg-X4zKzvMQzUgE"
+          }
+        },
+        "stackName": "AgentCore-TripPlanner-default",
+        "deployHash": "c434133057b08366"
+      }
+    }
+  }
 }
