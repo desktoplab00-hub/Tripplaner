@@ -1,108 +1,159 @@
-# AgentCore Project
+================================================================================
+                    TRIPPLANNER AI - DOCUMENTACION DEL PROYECTO
+================================================================================
 
-This project was created with the [AgentCore CLI](https://github.com/aws/agentcore-cli).
+1. QUE ES EL PROYECTO
+--------------------------------------------------------------------------------
+TripPlanner AI es una aplicacion web y un sistema multiagente orientado a la
+planificacion de viajes, consulta de vuelos y pronostico del clima, gestion de
+viajes e itinerarios y registro de reservas simuladas.
 
-## Project Structure
+La solucion integra:
+- Agentes inteligentes en Amazon Bedrock AgentCore:
+  * OrchestratorAgent: coordina las solicitudes del usuario, administra el
+    contexto y conecta las herramientas de negocio (trip_tools.py) con el
+    backend serverless.
+  * FlightsAgent: agente especialista (A2A) conectado al MCP de Kiwi para
+    consultar opciones de vuelos y devolver informacion estructurada.
+  * WeatherAgent: agente especialista (A2A) conectado al MCP de Open-Meteo para
+    consultar el pronostico meteorologico y devolver informacion por dia.
+- Backend serverless en AWS (region us-east-2):
+  * Amazon API Gateway (HTTP API): https://vuv1fjq9x1.execute-api.us-east-2.amazonaws.com
+  * AWS Lambda (Python 3.12):
+    - TripsFunction: gestion de viajes (POST /trips, GET /trips, PUT /trips/{tripId})
+    - ItinerariesFunction: gestion de itinerarios (POST/PUT/GET /trips/{tripId}/itinerary)
+    - ReservationsFunction: gestion de reservas (POST/GET/PUT /reservations, PUT /reservations/{reservationId})
+  * Amazon DynamoDB: tabla unica con clave de particion por usuario (pk) y clave
+    de ordenamiento (sk) con prefijos TRIP#, ITIN# y RES#.
+- Interfaz web (carpeta web/):
+  * Aplicacion web de 6 modulos:
+    1. Dashboard
+    2. Asistente IA (Streaming)
+    3. Vuelos
+    4. Clima
+    5. Mis Viajes e Itinerarios
+    6. Gestion de Reservas
+  * Servidor local en Python/Flask (web/server.py) que actua como proxy hacia
+    Amazon Bedrock AgentCore.
+  * Alojamiento web estatico en Amazon S3.
 
-```
-my-project/
-├── AGENTS.md               # AI coding assistant context
-├── agentcore/
-│   ├── agentcore.json      # Project config (agents, memories, credentials, gateways, evaluators)
-│   ├── aws-targets.json    # Deployment targets (account + region)
-│   ├── .env.local          # Secrets — API keys (gitignored)
-│   ├── .llm-context/       # TypeScript type definitions for AI assistants
-│   │   ├── agentcore.ts    # AgentCoreProjectSpec types
-│   │   └── aws-targets.ts  # Deployment target types
-│   └── cdk/                # CDK infrastructure (@aws/agentcore-cdk)
-├── app/                    # Agent application code
-└── evaluators/             # Custom evaluator code (if any)
-```
+Seguridad y validaciones implementadas:
+- El backend y la interfaz no solicitan ni aceptan datos de tarjetas de credito
+  o debito (se rechazan campos como card, cardnumber, cvv y tarjeta).
+- Las reservas soportan estados como SIMULADA, PENDIENTE y CONFIRMADA.
+- La identificacion de usuario utiliza actualmente la cabecera x-user-id (por
+  defecto "demo-user"); la autenticacion con Amazon Cognito queda pendiente
+  para futuras iteraciones.
 
-## Getting Started
 
-### Prerequisites
+2. ESTRUCTURA DE CARPETAS Y ARCHIVOS
+--------------------------------------------------------------------------------
+TripPlanner/
+|-- agentcore/
+|   `-- agentcore.json             Configuracion de agentes y variables de entorno
+|-- app/
+|   |-- FlightsAgent/
+|   |   `-- main.py                Agente de vuelos (A2A + MCP Kiwi)
+|   |-- OrchestratorAgent/
+|   |   |-- main.py                Agente orquestador principal
+|   |   `-- trip_tools.py          Herramientas de consulta y escritura
+|   `-- WeatherAgent/
+|       `-- main.py                Agente de clima (A2A + MCP Open-Meteo)
+|-- backend/
+|   |-- common.py                  Validaciones, respuestas HTTP y acceso DynamoDB
+|   |-- trips.py                   Logica Lambda de viajes
+|   |-- itineraries.py             Logica Lambda de itinerarios
+|   `-- reservations.py            Logica Lambda de reservas
+|-- template.yaml                  Plantilla AWS SAM (DynamoDB, Lambdas, HttpApi)
+|-- crear-backend.ps1              Script de generacion del backend serverless
+`-- web/
+    |-- config.js                  Configuracion de API_URL y USER_ID
+    |-- index.html                 Interfaz grafica de 6 modulos
+    |-- server.py                  Servidor Flask local hacia AgentCore
+    |-- requirements.txt           Dependencias de Python del servidor web
+    `-- .venv/                     Entorno virtual Python local
 
-- **Node.js** 20.x or later
-- **Python 3.10+** and **uv** for Python agents ([install uv](https://docs.astral.sh/uv/getting-started/installation/))
-- **AWS credentials** configured (`aws configure` or environment variables)
-- **Docker** (only for Container build agents)
 
-### Development
+3. COMO EJECUTAR Y DESPLEGAR EL PROYECTO
+--------------------------------------------------------------------------------
 
-Run your agent locally:
+Requisitos previos:
+- Cuenta de AWS configurada en la region us-east-2 con AWS CLI y AWS SAM CLI.
+- Python 3.12 y entorno virtual web\.venv listo.
+- Herramientas de AgentCore configuradas para el despliegue de agentes.
 
-```bash
-agentcore dev
-```
+Paso 1: Generar y desplegar el backend serverless (AWS SAM)
+En PowerShell, desde la raiz del proyecto:
 
-### Validate Invocation Input
+  cd C:\Users\Usuario\TripPlanner
+  powershell -ExecutionPolicy Bypass -File .\crear-backend.ps1
+  sam deploy --guided
 
-Validate runtime invocation payloads before forwarding them to an agent framework. Keep user prompts typed as strings
-and pass only prompt text to the agent.
+Durante el asistente interactivo:
+- Stack Name: tripplanner
+- AWS Region: us-east-2
+- Confirm changes before deploy: N
+- Allow SAM CLI IAM role creation: Y
+- Disable rollback: N
+- Preguntas de funciones sin autenticacion: Y en cada una
+- Save arguments to configuration file: Y
+- Archivo de configuracion y entorno: Enter para aceptar por defecto
 
-### Deployment
+Paso 2: Desplegar los agentes en Amazon Bedrock AgentCore
+Desde la raiz del proyecto:
 
-Deploy to AWS:
+  cd C:\Users\Usuario\TripPlanner
+  agentcore deploy
 
-```bash
-agentcore deploy
-```
+Paso 3: Verificar web/config.js
+Asegurar que web/config.js contenga:
 
-## Commands
+  window.CONFIG = {
+    API_URL: "https://vuv1fjq9x1.execute-api.us-east-2.amazonaws.com",
+    USER_ID: "demo-user"
+  };
 
-| Command | Description |
-| --- | --- |
-| `agentcore create` | Create a new AgentCore project |
-| `agentcore add` | Add resources (agent, memory, credential, gateway, evaluator, policy) |
-| `agentcore remove` | Remove resources |
-| `agentcore dev` | Run agent locally with hot-reload |
-| `agentcore deploy` | Deploy to AWS via CDK |
-| `agentcore status` | Show deployment status |
-| `agentcore invoke` | Invoke agent (local or deployed) |
-| `agentcore logs` | View agent logs |
-| `agentcore traces` | View agent traces |
-| `agentcore eval` | Run evaluations |
-| `agentcore package` | Package agent artifacts |
-| `agentcore validate` | Validate configuration |
-| `agentcore pause` | Pause a deployed agent |
-| `agentcore resume` | Resume a paused agent |
-| `agentcore fetch` | Fetch remote resource definitions |
-| `agentcore import` | Import existing resources |
-| `agentcore update` | Check for CLI updates |
+Paso 4: Ejecutar el servidor local (web/server.py)
+Desde PowerShell en la carpeta web:
 
-## Configuration
+  cd C:\Users\Usuario\TripPlanner\web
+  .\.venv\Scripts\python.exe server.py
 
-Edit the JSON files in `agentcore/` to configure your project. See `agentcore/.llm-context/` for type definitions and validation constraints.
+Luego abrir en el navegador:
+  http://127.0.0.1:5000
 
-The project uses a **flat resource model** — agents, memories, credentials, gateways, evaluators, and policies are top-level arrays in `agentcore.json`. Resources are independent; agents discover memories and credentials at runtime via environment variables or SDK calls.
+Paso 5: Publicar la interfaz estatica en Amazon S3
+Desde PowerShell en la raiz del proyecto:
 
-## Resources
+  cd C:\Users\Usuario\TripPlanner
+  $bucket = "tripplanner-frontend-090587344601"
+  aws s3 mb "s3://$bucket" --region us-east-2
+  aws s3 website "s3://$bucket" --index-document index.html
+  aws s3api put-public-access-block --bucket $bucket --public-access-block-configuration "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false"
 
-| Resource | Purpose |
-| --- | --- |
-| Agent (runtime) | HTTP, MCP, or A2A agent deployed to AgentCore Runtime |
-| Memory | Persistent context storage with configurable strategies |
-| Credential | API key or OAuth credential providers |
-| Gateway | MCP gateway that routes tool calls to targets |
-| Gateway Target | Tool implementation (Lambda, MCP server, OpenAPI, Smithy, API Gateway) |
-| Evaluator | Custom LLM-as-a-Judge or code-based evaluation |
-| Online Eval Config | Continuous evaluation pipeline for deployed agents |
-| Policy | Cedar authorization policies for gateway tools |
+  $policy = @"
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "PublicReadGetObject",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "s3:GetObject",
+        "Resource": "arn:aws:s3:::$bucket/*"
+      }
+    ]
+  }
+  "@
+  $policy | Out-File -Encoding ascii policy.json
+  aws s3api put-bucket-policy --bucket $bucket --policy file://policy.json
+  Remove-Item policy.json
 
-### Agent Types
+  aws s3 sync ".\web" "s3://$bucket" --exclude ".venv/*" --exclude "*.py" --exclude "requirements.txt" --exclude "__pycache__/*"
 
-- **Template agents**: Created from framework templates (Strands, LangChain/LangGraph, GoogleADK, OpenAI Agents, Autogen)
-- **BYO agents**: Bring your own code with `agentcore add agent --type byo`
-- **Import agents**: Import existing Bedrock agents with `agentcore import`
+URL del sitio web estatico en S3:
+  http://tripplanner-frontend-090587344601.s3-website.us-east-2.amazonaws.com
 
-### Build Types
-
-- **CodeZip**: Python source packaged as a zip and deployed directly to AgentCore Runtime
-- **Container**: Docker image built via CodeBuild (ARM64), pushed to ECR, and deployed to AgentCore Runtime
-
-## Documentation
-
-- [AgentCore CLI](https://github.com/aws/agentcore-cli)
-- [AgentCore CDK Constructs](https://github.com/aws/agentcore-l3-cdk-constructs)
-- [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+Nota: Si se consulta el chat con el agente desde la URL de S3, mantener
+encendido web/server.py en http://127.0.0.1:5000, ya que las peticiones
+/api/chat se dirigen al proxy local cuando no se esta en localhost.
